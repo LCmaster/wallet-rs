@@ -5,7 +5,7 @@ use crate::eth_wallet::EthWallet;
 mod eth_wallet;
 
 fn main() -> Result<()> {
-    let (sec_key, pub_key) = eth_wallet::generate_keypair();
+    let (sec_key, pub_key) = eth_wallet::generate_keypairs();
     let pub_address = eth_wallet::public_key_address(&pub_key);
     let eth_wallet = EthWallet::new(&sec_key, &pub_key);
 
@@ -18,7 +18,7 @@ fn main() -> Result<()> {
 
     eth_wallet.save_to_file();
 
-    let loaded_wallet = eth_wallet::EthWallet::load_from_file();
+    let loaded_wallet = eth_wallet::EthWallet::load_from_file()?;
 
     println!("");
     println!("Loaded Ethereum Walet");

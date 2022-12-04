@@ -1,21 +1,20 @@
 use std::{
     fs::OpenOptions,
     io::{BufReader, BufWriter},
+    str::FromStr,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use anyhow::{Ok, Result};
-use secp256k1::{
-    rand::{rngs, SeedableRng},
-    PublicKey, SecretKey,
-};
+use secp256k1::{rand::rngs, PublicKey, SecretKey};
 use serde::{Deserialize, Serialize};
 use tiny_keccak::keccak256;
 use web3::types::Address;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EthWallet {
-    pub secret_key: String,
-    pub public_key: String,
+    secret_key: String,
+    public_key: String,
     pub public_address: String,
 }
 
@@ -48,11 +47,26 @@ impl EthWallet {
         let wallet: Self = serde_json::from_reader(buf_reader)?;
         Ok(wallet)
     }
+
+    pub fn get_secret_key(&self) -> Result<SecretKey> {
+        let secret_key = SecretKey::from_str(&self.secret_key)?;
+        Ok(secret_key)
+    }
+
+    pub fn get_public_key(&self) -> Result<PublicKey> {
+        let public_key = PublicKey::from_str(&self.public_key)?;
+        Ok(public_key)
+    }
 }
 
-pub fn generate_keypair() -> (SecretKey, PublicKey) {
+pub fn get_time_in_nanoseconds() -> u64 {
+    let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+    timestamp.as_secs() << 30 | timestamp.subsec_nanos() as u64
+}
+
+pub fn generate_keypairs() -> (SecretKey, PublicKey) {
     let secp = secp256k1::Secp256k1::new();
-    let mut random_number_generator = rngs::StdRng::seed_from_u64(111);
+    let mut random_number_generator = rngs::JitterRng::new_with_timer(get_time_in_nanoseconds);
     secp.generate_keypair(&mut random_number_generator)
 }
 
