@@ -9,7 +9,11 @@ use anyhow::{Ok, Result};
 use secp256k1::{rand::rngs, PublicKey, SecretKey};
 use serde::{Deserialize, Serialize};
 use tiny_keccak::keccak256;
-use web3::types::Address;
+use web3::{
+    transports::WebSocket,
+    types::{Address, U256},
+    Web3,
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EthWallet {
@@ -57,11 +61,23 @@ impl EthWallet {
         let public_key = PublicKey::from_str(&self.public_key)?;
         Ok(public_key)
     }
+
+    pub async fn get_balance(&self, web3: &Web3<WebSocket>) -> Result<U256> {
+        let wallet_address = Address::from_str(&self.public_address)?;
+        let balance = web3.eth().balance(wallet_address, None).await?;
+
+        Ok(balance)
+    }
 }
 
 pub fn get_time_in_nanoseconds() -> u64 {
     let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
     timestamp.as_secs() << 30 | timestamp.subsec_nanos() as u64
+}
+
+pub fn wei_to_eth(wei_val: U256) -> f64 {
+    let res = wei_val.as_u128() as f64;
+    res / 1_000_000_000_000_000_000.0
 }
 
 pub fn generate_keypairs() -> (SecretKey, PublicKey) {
@@ -77,4 +93,10 @@ pub fn public_key_address(public_key: &PublicKey) -> Address {
     let hash = keccak256(&public_key[1..]);
 
     Address::from_slice(&hash[12..])
+}
+
+pub async fn connect(url: &str) -> Result<Web3<WebSocket>> {
+    let websocket = web3::transports::WebSocket::new(url).await?;
+    let web3 = Web3::new(websocket);
+    Ok(web3)
 }

@@ -1,28 +1,35 @@
-use anyhow::{Ok, Result};
+use core::result::Result::Ok;
+use std::env;
+
+use anyhow::Result;
 
 use crate::eth_wallet::EthWallet;
 
 mod eth_wallet;
 
-fn main() -> Result<()> {
-    let (sec_key, pub_key) = eth_wallet::generate_keypairs();
-    let pub_address = eth_wallet::public_key_address(&pub_key);
-    let eth_wallet = EthWallet::new(&sec_key, &pub_key);
+#[tokio::main]
+async fn main() -> Result<()> {
+    dotenv::dotenv().ok();
 
-    println!("secret key: {}", &sec_key.to_string());
-    println!("public key: {}", &pub_key.to_string());
-    println!("public address: {:?}", pub_address);
-    println!("");
-    println!("Ethereum Walet");
-    println!("{:?}", &eth_wallet);
+    let eth_wallet = if let Ok(wallet) = eth_wallet::EthWallet::load_from_file() {
+        wallet
+    } else {
+        let (sec_key, pub_key) = eth_wallet::generate_keypairs();
+        let new_wallet = EthWallet::new(&sec_key, &pub_key);
+        new_wallet
+    };
 
     eth_wallet.save_to_file();
 
-    let loaded_wallet = eth_wallet::EthWallet::load_from_file()?;
+    // println!("");
+    println!("Ethereum Walet");
+    println!("Account {}", &eth_wallet.public_address);
 
-    println!("");
-    println!("Loaded Ethereum Walet");
-    println!("{:?}", &loaded_wallet);
+    let endpoint = env::var("INFURA_NETWORK_ENDPOINT")?;
+    let web3 = eth_wallet::connect(&endpoint).await?;
+
+    let balance = eth_wallet.get_balance(&web3).await?;
+    println!("Balance: {} ETH", eth_wallet::wei_to_eth(balance));
 
     Ok(())
 }
