@@ -15,7 +15,7 @@ use web3::{
     Web3,
 };
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EthWallet {
     secret_key: String,
     public_key: String,
