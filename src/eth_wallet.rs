@@ -11,11 +11,11 @@ use serde::{Deserialize, Serialize};
 use tiny_keccak::keccak256;
 use web3::{
     transports::WebSocket,
-    types::{Address, U256},
+    types::{Address, TransactionParameters, U256, H256},
     Web3,
 };
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EthWallet {
     secret_key: String,
     public_key: String,
@@ -80,6 +80,12 @@ pub fn wei_to_eth(wei_val: U256) -> f64 {
     res / 1_000_000_000_000_000_000.0
 }
 
+pub fn eth_to_wei(eth_val: f64) -> U256 {
+    let res = eth_val * 1_000_000_000_000_000_000.0;
+    let res = res as u128;
+    U256::from(res)
+}
+
 pub fn generate_keypairs() -> (SecretKey, PublicKey) {
     let secp = secp256k1::Secp256k1::new();
     let mut random_number_generator = rngs::JitterRng::new_with_timer(get_time_in_nanoseconds);
@@ -99,4 +105,29 @@ pub async fn connect(url: &str) -> Result<Web3<WebSocket>> {
     let websocket = web3::transports::WebSocket::new(url).await?;
     let web3 = Web3::new(websocket);
     Ok(web3)
+}
+
+pub fn create_eth_transaction(to: Address, value: f64) -> TransactionParameters {
+    TransactionParameters {
+        to: Some(to),
+        value: eth_to_wei(value),
+        ..Default::default()
+    }
+}
+
+pub async fn sign_and_send(
+    web3: &Web3<WebSocket>,
+    transaction: TransactionParameters,
+    secret_key: &SecretKey,
+) -> Result<H256> {
+
+    let signed = web3
+        .accounts()
+        .sign_transaction(transaction, secret_key)
+        .await?;
+    let transaction_result = web3
+        .eth()
+        .send_raw_transaction(signed.raw_transaction)
+        .await?;
+    Ok(transaction_result)
 }
